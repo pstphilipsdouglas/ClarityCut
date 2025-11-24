@@ -57,16 +57,18 @@ export const ProcessPhase: React.FC<ProcessPhaseProps> = ({ metrics, cuts, confi
     const checkTime = () => {
       if (videoRef.current && !videoRef.current.paused) {
         const time = videoRef.current.currentTime;
+        
         // Check if current time falls into any ACCEPTED cut
+        // We ensure we don't skip if we are already practically at the end of the cut to avoid stutter loops
         const activeCut = cuts.find(c => 
           c.status === 'accepted' && 
           time >= c.start && 
-          time < c.end
+          time < (c.end - 0.1) 
         );
 
         if (activeCut) {
-          // Jump to end of cut
-          videoRef.current.currentTime = activeCut.end;
+          // Jump to end of cut + small buffer to ensure we clear the cut region
+          videoRef.current.currentTime = activeCut.end + 0.05;
         }
       }
       animationFrame = requestAnimationFrame(checkTime);
@@ -83,9 +85,19 @@ export const ProcessPhase: React.FC<ProcessPhaseProps> = ({ metrics, cuts, confi
     if (videoRef.current) {
         videoRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
         if (videoRef.current.paused) {
-            videoRef.current.play();
+            videoRef.current.play().catch(e => console.error("Auto-play failed:", e));
         }
     }
+  };
+
+  const handleDownload = () => {
+    if (!fileUrl) return;
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.download = `clarity_cut_optimized.${config.outputFormat}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (!isComplete) {
@@ -219,7 +231,7 @@ export const ProcessPhase: React.FC<ProcessPhaseProps> = ({ metrics, cuts, confi
              <Play className="w-5 h-5 mr-2" />
              Watch Preview
         </Button>
-        <Button className="w-full sm:w-auto h-12 text-lg px-8 shadow-lg shadow-indigo-500/20 order-1 sm:order-2">
+        <Button onClick={handleDownload} className="w-full sm:w-auto h-12 text-lg px-8 shadow-lg shadow-indigo-500/20 order-1 sm:order-2">
           <Download className="w-5 h-5 mr-2" />
           Download .{config.outputFormat.toUpperCase()}
         </Button>
