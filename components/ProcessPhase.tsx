@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Download, RefreshCw, Scissors, Sparkles, Play, Pause } from 'lucide-react';
+import { Download, RefreshCw, Scissors, Sparkles, Play, Check } from 'lucide-react';
 import { Button } from './Button';
 import { ProcessingMetrics, VideoConfig } from '../types';
 import { generateEditingReport } from '../services/geminiService';
@@ -79,6 +79,15 @@ export const ProcessPhase: React.FC<ProcessPhaseProps> = ({ metrics, cuts, confi
     return () => cancelAnimationFrame(animationFrame);
   }, [isComplete, cuts]);
 
+  const handlePlayPreview = () => {
+    if (videoRef.current) {
+        videoRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (videoRef.current.paused) {
+            videoRef.current.play();
+        }
+    }
+  };
+
   if (!isComplete) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in w-full max-w-2xl mx-auto text-center space-y-8">
@@ -137,10 +146,24 @@ export const ProcessPhase: React.FC<ProcessPhaseProps> = ({ metrics, cuts, confi
               controls
               playsInline
             />
+            
+            {/* Playing Indicator */}
             {isPlaying && (
-               <div className="absolute top-4 left-4 bg-indigo-500/90 backdrop-blur text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg pointer-events-none">
+               <div className="absolute top-4 left-4 bg-indigo-500/90 backdrop-blur text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg pointer-events-none z-10">
                  Previewing Optimized Cut
                </div>
+            )}
+
+            {/* Large Play Overlay */}
+            {!isPlaying && (
+                <div 
+                    className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/40 transition-colors cursor-pointer z-20 group/overlay"
+                    onClick={handlePlayPreview}
+                >
+                    <div className="w-20 h-20 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-xl group-hover/overlay:scale-110 transition-transform duration-300">
+                        <Play className="w-10 h-10 text-white ml-1.5" fill="currentColor" />
+                    </div>
+                </div>
             )}
           </div>
           <p className="text-xs text-slate-500 text-center">
@@ -192,13 +215,17 @@ export const ProcessPhase: React.FC<ProcessPhaseProps> = ({ metrics, cuts, confi
 
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8 border-t border-slate-800">
-        <Button className="w-full sm:w-auto h-12 text-lg px-8 shadow-lg shadow-indigo-500/20">
+        <Button onClick={handlePlayPreview} variant="secondary" className="w-full sm:w-auto h-12 order-2 sm:order-1">
+             <Play className="w-5 h-5 mr-2" />
+             Watch Preview
+        </Button>
+        <Button className="w-full sm:w-auto h-12 text-lg px-8 shadow-lg shadow-indigo-500/20 order-1 sm:order-2">
           <Download className="w-5 h-5 mr-2" />
           Download .{config.outputFormat.toUpperCase()}
         </Button>
-        <Button variant="secondary" onClick={onReset} className="w-full sm:w-auto h-12">
+        <Button variant="ghost" onClick={onReset} className="w-full sm:w-auto h-12 order-3 text-slate-400 hover:text-white">
           <RefreshCw className="w-5 h-5 mr-2" />
-          Process Another Video
+          Process Another
         </Button>
       </div>
 
@@ -208,8 +235,3 @@ export const ProcessPhase: React.FC<ProcessPhaseProps> = ({ metrics, cuts, confi
     </div>
   );
 };
-
-// Simple Icon component fallback if needed, but I used Lucide imports
-const Check = ({className}: {className?:string}) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="20 6 9 17 4 12"></polyline></svg>
-);
