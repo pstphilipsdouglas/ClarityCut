@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Download, RefreshCw, Scissors, Sparkles } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Download, RefreshCw, Scissors, Sparkles, Play, Pause } from 'lucide-react';
 import { Button } from './Button';
 import { ProcessingMetrics, VideoConfig } from '../types';
 import { generateEditingReport } from '../services/geminiService';
@@ -10,13 +10,17 @@ interface ProcessPhaseProps {
   cuts: CutEvent[]; // Passed to generate report
   config: VideoConfig;
   onReset: () => void;
+  fileUrl: string;
 }
 
-export const ProcessPhase: React.FC<ProcessPhaseProps> = ({ metrics, cuts, config, onReset }) => {
+export const ProcessPhase: React.FC<ProcessPhaseProps> = ({ metrics, cuts, config, onReset, fileUrl }) => {
   const [progress, setProgress] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   const [aiReport, setAiReport] = useState<string>('');
   const [loadingReport, setLoadingReport] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Simulate rendering progress
   useEffect(() => {
@@ -45,6 +49,35 @@ export const ProcessPhase: React.FC<ProcessPhaseProps> = ({ metrics, cuts, confi
         .finally(() => setLoadingReport(false));
     }
   }, [isComplete, cuts, metrics.originalDuration]);
+
+  // Auto-skip logic for preview player
+  useEffect(() => {
+    let animationFrame: number;
+
+    const checkTime = () => {
+      if (videoRef.current && !videoRef.current.paused) {
+        const time = videoRef.current.currentTime;
+        // Check if current time falls into any ACCEPTED cut
+        const activeCut = cuts.find(c => 
+          c.status === 'accepted' && 
+          time >= c.start && 
+          time < c.end
+        );
+
+        if (activeCut) {
+          // Jump to end of cut
+          videoRef.current.currentTime = activeCut.end;
+        }
+      }
+      animationFrame = requestAnimationFrame(checkTime);
+    };
+
+    if (isComplete) {
+      animationFrame = requestAnimationFrame(checkTime);
+    }
+
+    return () => cancelAnimationFrame(animationFrame);
+  }, [isComplete, cuts]);
 
   if (!isComplete) {
     return (
@@ -77,57 +110,88 @@ export const ProcessPhase: React.FC<ProcessPhaseProps> = ({ metrics, cuts, confi
   }
 
   return (
-    <div className="max-w-3xl mx-auto animate-fade-in space-y-8">
+    <div className="max-w-4xl mx-auto animate-fade-in space-y-8 pb-12">
       
       {/* Success Banner */}
-      <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-8 text-center space-y-4">
-        <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-green-500/20">
-          <Check className="w-8 h-8 text-white" />
+      <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-6 text-center space-y-2">
+        <div className="flex items-center justify-center gap-2 text-green-400">
+          <Check className="w-6 h-6" />
+          <h2 className="text-2xl font-bold text-white">Video Processed Successfully!</h2>
         </div>
-        <h2 className="text-3xl font-bold text-white">Video Processed Successfully!</h2>
-        <p className="text-slate-300">Your concise, polished video is ready for download.</p>
+        <p className="text-slate-300">Your concise, polished video is ready.</p>
       </div>
 
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Time Saved', value: `${metrics.timeSaved.toFixed(1)}s`, color: 'text-indigo-400' },
-          { label: 'Cuts Made', value: metrics.cutsCount, color: 'text-pink-400' },
-          { label: 'New Duration', value: `${(metrics.finalDuration / 60).toFixed(1)}m`, color: 'text-white' },
-          { label: 'Format', value: config.outputFormat.toUpperCase(), color: 'text-green-400' }
-        ].map((stat, i) => (
-          <div key={i} className="bg-slate-900 border border-slate-800 p-4 rounded-xl text-center">
-            <p className="text-slate-500 text-xs uppercase tracking-wider mb-1">{stat.label}</p>
-            <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Left Column: Preview Player */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium text-white flex items-center gap-2">
+            <Play className="w-4 h-4 text-indigo-400" /> Preview Result
+          </h3>
+          <div className="relative aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-slate-800 group">
+            <video 
+              ref={videoRef}
+              src={fileUrl}
+              className="w-full h-full object-contain"
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              controls
+              playsInline
+            />
+            {isPlaying && (
+               <div className="absolute top-4 left-4 bg-indigo-500/90 backdrop-blur text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg pointer-events-none">
+                 Previewing Optimized Cut
+               </div>
+            )}
           </div>
-        ))}
-      </div>
-
-      {/* AI Report Card */}
-      <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900 border border-indigo-500/30 rounded-xl p-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-4 opacity-10">
-          <Sparkles className="w-24 h-24 text-white" />
-        </div>
-        <h3 className="flex items-center gap-2 text-indigo-300 font-medium mb-3">
-          <Sparkles className="w-4 h-4" />
-          AI Analysis Report
-        </h3>
-        {loadingReport ? (
-          <div className="animate-pulse flex space-x-4">
-            <div className="flex-1 space-y-2 py-1">
-              <div className="h-2 bg-slate-700 rounded"></div>
-              <div className="h-2 bg-slate-700 rounded w-5/6"></div>
-            </div>
-          </div>
-        ) : (
-          <p className="text-lg text-slate-100 italic leading-relaxed">
-            "{aiReport}"
+          <p className="text-xs text-slate-500 text-center">
+            This player simulates the final edit by skipping removed segments in real-time.
           </p>
-        )}
+        </div>
+
+        {/* Right Column: Stats & Report */}
+        <div className="space-y-6">
+          {/* Metrics Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'Time Saved', value: `${metrics.timeSaved.toFixed(1)}s`, color: 'text-indigo-400' },
+              { label: 'Cuts Made', value: metrics.cutsCount, color: 'text-pink-400' },
+              { label: 'New Duration', value: `${(metrics.finalDuration / 60).toFixed(1)}m`, color: 'text-white' },
+              { label: 'Format', value: config.outputFormat.toUpperCase(), color: 'text-green-400' }
+            ].map((stat, i) => (
+              <div key={i} className="bg-slate-900 border border-slate-800 p-3 rounded-xl text-center">
+                <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-1">{stat.label}</p>
+                <p className={`text-xl font-bold ${stat.color}`}>{stat.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* AI Report Card */}
+          <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900 border border-indigo-500/30 rounded-xl p-5 relative overflow-hidden flex-1">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+              <Sparkles className="w-24 h-24 text-white" />
+            </div>
+            <h3 className="flex items-center gap-2 text-indigo-300 font-medium mb-3">
+              <Sparkles className="w-4 h-4" />
+              AI Analysis Report
+            </h3>
+            {loadingReport ? (
+              <div className="animate-pulse flex space-x-4">
+                <div className="flex-1 space-y-2 py-1">
+                  <div className="h-2 bg-slate-700 rounded"></div>
+                  <div className="h-2 bg-slate-700 rounded w-5/6"></div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-200 italic leading-relaxed">
+                "{aiReport}"
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+      <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8 border-t border-slate-800">
         <Button className="w-full sm:w-auto h-12 text-lg px-8 shadow-lg shadow-indigo-500/20">
           <Download className="w-5 h-5 mr-2" />
           Download .{config.outputFormat.toUpperCase()}

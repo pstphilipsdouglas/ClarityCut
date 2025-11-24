@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { Play, Pause, SkipForward, Check, X as XIcon, Edit2, RotateCcw, RotateCw } from 'lucide-react';
+import { Play, Pause, RotateCcw, RotateCw, Check, X as XIcon } from 'lucide-react';
 import { CutEvent } from '../types';
 import { Button } from './Button';
 
@@ -30,6 +30,9 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const wasPlayingRef = useRef(false);
+
+  // Preview State
+  const previewEndTimeRef = useRef<number | null>(null);
 
   // Generate synthetic waveform data
   const waveformBars = useMemo(() => {
@@ -68,6 +71,23 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
         const time = videoRef.current.currentTime;
         setCurrentTime(time);
 
+        // Preview Logic: Stop if we reached the preview end time
+        if (previewEndTimeRef.current !== null) {
+            if (time >= previewEndTimeRef.current) {
+                videoRef.current.pause();
+                setIsPlaying(false);
+                previewEndTimeRef.current = null;
+            } else {
+                // Ensure the cut being previewed remains highlighted
+                const currentPreviewCut = cuts.find(c => time >= (c.start - 1.5) && time <= (c.end + 1.5));
+                if (currentPreviewCut) setActiveCutId(currentPreviewCut.id);
+            }
+            // While previewing specific range, DO NOT skip cuts.
+            animationFrame = requestAnimationFrame(checkTime);
+            return;
+        }
+
+        // Standard Logic: Skip accepted cuts
         // Find if we are currently inside an ACCEPTED cut
         // We only skip if the user is NOT scrubbing.
         const currentCut = cuts.find(c => 
@@ -86,23 +106,34 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
            const upcomingCut = cuts.find(c => Math.abs(c.start - time) < 2);
            setActiveCutId(upcomingCut ? upcomingCut.id : null);
         }
+      } else {
+        // Synchronize state if video paused externally or finished
+        if (videoRef.current && videoRef.current.paused !== !isPlaying) {
+             setIsPlaying(!videoRef.current.paused);
+        }
       }
       animationFrame = requestAnimationFrame(checkTime);
     };
 
-    if (isPlaying || isScrubbing) {
-      animationFrame = requestAnimationFrame(checkTime);
-    }
-
+    animationFrame = requestAnimationFrame(checkTime);
     return () => cancelAnimationFrame(animationFrame);
   }, [isPlaying, cuts, isScrubbing]);
 
-  // Preview specific cut
+  // Preview specific cut (1s before and 1s after)
   const previewCut = (cut: CutEvent) => {
+    // Explicitly set active cut so UI highlights immediately
+    setActiveCutId(cut.id);
+    
     if (videoRef.current) {
-      videoRef.current.currentTime = Math.max(0, cut.start - 1.5);
-      videoRef.current.play();
-      setIsPlaying(true);
+      const start = Math.max(0, cut.start - 1);
+      const end = Math.min(duration, cut.end + 1);
+      
+      previewEndTimeRef.current = end;
+      
+      videoRef.current.currentTime = start;
+      videoRef.current.play()
+        .then(() => setIsPlaying(true))
+        .catch(e => console.error("Play failed", e));
     }
   };
 
@@ -112,6 +143,8 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
       const newTime = Math.max(0, Math.min(duration, videoRef.current.currentTime + seconds));
       videoRef.current.currentTime = newTime;
       setCurrentTime(newTime);
+      // Clear preview state if skipping manually
+      previewEndTimeRef.current = null;
     }
   };
 
@@ -119,6 +152,13 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatTimeExact = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    const ms = Math.floor((seconds % 1) * 10); // Tenths of a second
+    return `${mins}:${secs.toString().padStart(2, '0')}.${ms}`;
   };
 
   // Scrubbing Handlers
@@ -143,6 +183,8 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
     if (!timelineRef.current) return;
 
     setIsScrubbing(true);
+    // Clear preview limit if user interacts
+    previewEndTimeRef.current = null;
     
     // Pause if playing to prevent audio stutter
     if (videoRef.current && !videoRef.current.paused) {
@@ -152,6 +194,7 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
         wasPlayingRef.current = false;
     }
     
+    // Immediate jump on click
     handleScrubMove(e);
   };
 
@@ -237,9 +280,14 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
               playsInline
             />
             {/* Cut overlay notification */}
-            {activeCutId && !isScrubbing && (
+            {activeCutId && !isScrubbing && previewEndTimeRef.current === null && (
               <div className="absolute top-4 right-4 bg-red-500/90 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse shadow-lg backdrop-blur-sm">
                 Skipping Cut...
+              </div>
+            )}
+            {previewEndTimeRef.current !== null && (
+              <div className="absolute top-4 right-4 bg-indigo-500/90 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm">
+                Previewing Segment
               </div>
             )}
           </div>
@@ -271,10 +319,10 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
                     ))}
                 </div>
 
-                <div className="absolute inset-0 rounded overflow-hidden">
+                <div className="absolute inset-0 rounded overflow-hidden pointer-events-none">
                     {/* Progress Fill (Visual Feedback) */}
                     <div 
-                        className="absolute top-0 left-0 h-full bg-indigo-500/10 border-r border-indigo-500/30 pointer-events-none"
+                        className="absolute top-0 left-0 h-full bg-indigo-500/10 border-r border-indigo-500/30"
                         style={{ width: `${(currentTime / duration) * 100}%` }}
                     />
 
@@ -300,14 +348,14 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
                     {/* Ghost Playhead (Hover) */}
                     {!isScrubbing && hoverTime !== null && (
                         <div 
-                            className="absolute top-0 w-px h-full bg-white/40 pointer-events-none z-0"
+                            className="absolute top-0 w-px h-full bg-white/40 z-0"
                             style={{ left: `${(hoverTime / duration) * 100}%` }}
                         />
                     )}
 
                     {/* Active Playhead */}
                     <div 
-                    className={`absolute top-0 h-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)] z-20 pointer-events-none transition-all duration-75 ${
+                    className={`absolute top-0 h-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)] z-20 transition-all duration-75 ${
                         isScrubbing ? 'w-1 bg-indigo-400 shadow-indigo-500/50' : 'w-0.5'
                     }`}
                     style={{ left: `${(currentTime / duration) * 100}%` }}
@@ -322,7 +370,7 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
                             left: `${((isScrubbing ? currentTime : hoverTime!) / duration) * 100}%` 
                         }}
                     >
-                        {formatTime(isScrubbing ? currentTime : hoverTime!)}
+                        {formatTimeExact(isScrubbing ? currentTime : hoverTime!)}
                     </div>
                 )}
              </div>

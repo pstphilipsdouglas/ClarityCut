@@ -202,6 +202,7 @@ const App: React.FC = () => {
             cuts={cuts}
             config={config}
             onReset={handleReset}
+            fileUrl={fileUrl}
           />
         )}
 
