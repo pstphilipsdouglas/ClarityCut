@@ -11,9 +11,10 @@ interface ProcessPhaseProps {
   config: VideoConfig;
   onReset: () => void;
   fileUrl: string;
+  file: File | null;
 }
 
-export const ProcessPhase: React.FC<ProcessPhaseProps> = ({ metrics, cuts, config, onReset, fileUrl }) => {
+export const ProcessPhase: React.FC<ProcessPhaseProps> = ({ metrics, cuts, config, onReset, fileUrl, file }) => {
   const [progress, setProgress] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   const [aiReport, setAiReport] = useState<string>('');
@@ -91,6 +92,23 @@ export const ProcessPhase: React.FC<ProcessPhaseProps> = ({ metrics, cuts, confi
   };
 
   const handleDownload = () => {
+    // Priority: Create a fresh URL from the original File object if available.
+    // This is robust against stale blob URLs which can cause "Network Failed" or "Connect to internet" errors in browsers.
+    if (file) {
+        const url = URL.createObjectURL(file);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `clarity_cut_optimized.${config.outputFormat}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Revoke after a delay to allow the download process to register the blob
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        return;
+    }
+
+    // Fallback to existing fileUrl (less reliable for downloads if state changed)
     if (!fileUrl) return;
     const link = document.createElement('a');
     link.href = fileUrl;

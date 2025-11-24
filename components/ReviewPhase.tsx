@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { Play, Pause, RotateCcw, RotateCw, Check, X as XIcon } from 'lucide-react';
+import { Play, Pause, RotateCcw, RotateCw, Check, X as XIcon, Rewind, FastForward } from 'lucide-react';
 import { CutEvent } from '../types';
 import { Button } from './Button';
 
@@ -377,12 +377,28 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
 
              {/* Transport Controls */}
              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  {/* Rewind 5s */}
+                
+                {/* Left: Time Display */}
+                <div className="w-24 text-sm font-mono text-slate-400">
+                    {formatTime(currentTime)} / {formatTime(duration)}
+                </div>
+
+                {/* Center: Main Controls */}
+                <div className="flex items-center gap-6">
+                  {/* Rewind 10s */}
+                  <button 
+                    onClick={() => skip(-10)}
+                    className="text-slate-500 hover:text-indigo-400 transition-colors focus:outline-none p-2 hover:bg-slate-800 rounded-full group"
+                    title="Rewind 10s"
+                  >
+                    <Rewind className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" />
+                  </button>
+
+                  {/* Skip Back 5s */}
                   <button 
                     onClick={() => skip(-5)}
                     className="text-slate-400 hover:text-white transition-colors focus:outline-none p-2 hover:bg-slate-800 rounded-full"
-                    title="Rewind 5s"
+                    title="Back 5s"
                   >
                     <RotateCcw className="w-5 h-5" />
                   </button>
@@ -394,12 +410,12 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
                             else videoRef.current.play();
                         }
                     }}
-                    className="text-white hover:text-indigo-400 transition-colors focus:outline-none transform active:scale-95"
+                    className="text-white bg-indigo-600 hover:bg-indigo-500 transition-all focus:outline-none transform active:scale-95 p-3 rounded-full shadow-lg shadow-indigo-500/20"
                   >
-                    {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8" />}
+                    {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current ml-0.5" />}
                   </button>
 
-                  {/* Forward 5s */}
+                  {/* Skip Forward 5s */}
                   <button 
                     onClick={() => skip(5)}
                     className="text-slate-400 hover:text-white transition-colors focus:outline-none p-2 hover:bg-slate-800 rounded-full"
@@ -408,18 +424,22 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
                     <RotateCw className="w-5 h-5" />
                   </button>
 
-                  <span className="text-sm font-mono text-slate-400 min-w-[100px] ml-2">
-                    {formatTime(currentTime)} <span className="text-slate-600">/</span> {formatTime(duration)}
-                  </span>
+                   {/* Fast Forward 10s */}
+                  <button 
+                    onClick={() => skip(10)}
+                    className="text-slate-500 hover:text-indigo-400 transition-colors focus:outline-none p-2 hover:bg-slate-800 rounded-full group"
+                    title="Fast Forward 10s"
+                  >
+                    <FastForward className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
                 </div>
                 
-                {/* Legend */}
-                <div className="hidden xl:flex gap-4 text-xs font-medium">
-                  <div className="flex items-center gap-1.5 text-slate-400"><span className="w-2 h-2 rounded-full bg-amber-500"></span>Filler</div>
-                  <div className="flex items-center gap-1.5 text-slate-400"><span className="w-2 h-2 rounded-full bg-pink-500"></span>Cliché</div>
-                  <div className="flex items-center gap-1.5 text-slate-400"><span className="w-2 h-2 rounded-full bg-blue-500"></span>Repetition</div>
-                  <div className="flex items-center gap-1.5 text-slate-400"><span className="w-2 h-2 rounded-full bg-purple-500"></span>Stutter</div>
-                  <div className="flex items-center gap-1.5 text-slate-400"><span className="w-2 h-2 rounded-full bg-slate-500"></span>Silence</div>
+                {/* Right: Legend */}
+                <div className="hidden xl:flex gap-4 text-xs font-medium w-24 justify-end">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-slate-400"><span className="w-2 h-2 rounded-full bg-amber-500"></span>Filler</div>
+                    <div className="flex items-center gap-1.5 text-slate-400"><span className="w-2 h-2 rounded-full bg-pink-500"></span>Cliché</div>
+                  </div>
                 </div>
              </div>
           </div>

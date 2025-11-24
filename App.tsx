@@ -203,6 +203,7 @@ const App: React.FC = () => {
             config={config}
             onReset={handleReset}
             fileUrl={fileUrl}
+            file={file}
           />
         )}
 
