@@ -157,8 +157,8 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
   const formatTimeExact = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    const ms = Math.floor((seconds % 1) * 10); // Tenths of a second
-    return `${mins}:${secs.toString().padStart(2, '0')}.${ms}`;
+    const ms = Math.floor((seconds % 1) * 1000); // Milliseconds
+    return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
   };
 
   // Scrubbing Handlers
@@ -169,8 +169,12 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
        const percentage = x / rect.width;
        const newTime = percentage * duration;
        
-       videoRef.current.currentTime = newTime;
+       // Update state for UI playhead
        setCurrentTime(newTime);
+
+       // Update video frame for visual feedback
+       // We update the video current time but DO NOT play, effectively scrubbing.
+       videoRef.current.currentTime = newTime;
 
        // Identify active cut during scrub for visual feedback
        const cutAtTime = cuts.find(c => newTime >= c.start && newTime < c.end);
@@ -180,31 +184,34 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
 
   const handleScrubStart = (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent text selection
-    if (!timelineRef.current) return;
+    if (!timelineRef.current || !videoRef.current) return;
 
     setIsScrubbing(true);
     // Clear preview limit if user interacts
     previewEndTimeRef.current = null;
     
-    // Pause if playing to prevent audio stutter
-    if (videoRef.current && !videoRef.current.paused) {
+    // Pause if playing to prevent audio stutter while scrubbing
+    if (!videoRef.current.paused) {
         wasPlayingRef.current = true;
         videoRef.current.pause();
     } else {
         wasPlayingRef.current = false;
     }
     
-    // Immediate jump on click
+    // Immediate jump/update on click
     handleScrubMove(e);
   };
 
   const handleScrubEnd = useCallback(() => {
+    if (!isScrubbing) return;
+
     setIsScrubbing(false);
+    // Resume playback only if it was playing before
     if (wasPlayingRef.current && videoRef.current) {
-        videoRef.current.play();
+        videoRef.current.play().catch(console.error);
     }
     wasPlayingRef.current = false;
-  }, []);
+  }, [isScrubbing]);
 
   // Window listeners for dragging outside timeline
   useEffect(() => {
@@ -472,7 +479,7 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
                           </span>
                           <span className="font-medium text-slate-200 text-sm">"{cut.word}"</span>
                        </div>
-                       <span className="text-xs font-mono text-slate-500">{formatTime(cut.start)}</span>
+                       <span className="text-xs font-mono text-slate-500">{formatTimeExact(cut.start)}</span>
                     </div>
 
                     <div className="flex items-center justify-between mt-3">

@@ -28,7 +28,18 @@ const App: React.FC = () => {
     { 
       id: 'default-1', 
       name: 'Church Service', 
-      phrases: ['Hallelujah', 'Amen', 'Praise God', 'Blessing', 'Scripture'] 
+      phrases: [
+        'Hallelujah', 
+        'Amen', 
+        'Praise God', 
+        'Blessing', 
+        'Scripture',
+        'Glory to Jesus',
+        'Glory to God',
+        'Praise the Lord',
+        'Thank you Lord',
+        'Thank you Father'
+      ] 
     },
     { 
       id: 'default-2', 

@@ -83,7 +83,19 @@ export const analyzeVideoMock = async (duration: number): Promise<CutEvent[]> =>
     } else if (typeRoll < 0.55) {
         // Cliche (20%)
         type = 'cliche';
-        const cliches = ["At the end of the day", "To be honest", "Hallelujah", "Literally", "Basically"];
+        const cliches = [
+            "At the end of the day", 
+            "To be honest", 
+            "Hallelujah", 
+            "Literally", 
+            "Basically",
+            "Glory to Jesus",
+            "Glory to God",
+            "Praise God",
+            "Praise the Lord",
+            "Thank you Lord",
+            "Thank you Father"
+        ];
         word = cliches[Math.floor(Math.random() * cliches.length)];
         length = 1.2;
     } else if (typeRoll < 0.70) {
