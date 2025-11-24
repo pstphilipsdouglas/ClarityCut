@@ -1,13 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Download, RefreshCw, Scissors, Sparkles, Play, Check } from 'lucide-react';
+import { Download, RefreshCw, Scissors, Sparkles, Play, Check, Film, Layers, Cpu } from 'lucide-react';
 import { Button } from './Button';
-import { ProcessingMetrics, VideoConfig } from '../types';
+import { ProcessingMetrics, VideoConfig, CutEvent } from '../types';
 import { generateEditingReport } from '../services/geminiService';
-import { CutEvent } from '../types';
 
 interface ProcessPhaseProps {
   metrics: ProcessingMetrics;
-  cuts: CutEvent[]; // Passed to generate report
+  cuts: CutEvent[];
   config: VideoConfig;
   onReset: () => void;
   fileUrl: string;
@@ -23,21 +22,41 @@ export const ProcessPhase: React.FC<ProcessPhaseProps> = ({ metrics, cuts, confi
   
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Helper to determine current stage based on progress
+  const getStageInfo = (p: number) => {
+    if (p < 20) return { label: 'Initializing Engine', icon: Cpu, detail: 'Loading video into processing buffer...' };
+    if (p < 45) return { label: 'Analyzing Audio', icon: Sparkles, detail: 'Identifying filler words and silences...' };
+    if (p < 70) return { label: 'Trimming Segments', icon: Scissors, detail: `Removing ${cuts.filter(c => c.status === 'accepted').length} detected events...` };
+    if (p < 90) return { label: 'Stitching & Encoding', icon: Layers, detail: `Reassembling as ${config.outputFormat.toUpperCase()}...` };
+    return { label: 'Finalizing', icon: Film, detail: 'Preparing download...' };
+  };
+
+  const currentStage = getStageInfo(progress);
+  const StageIcon = currentStage.icon;
+
   // Simulate rendering progress
   useEffect(() => {
     if (progress >= 100) {
-      setIsComplete(true);
+      if (!isComplete) setIsComplete(true);
       return;
     }
     
-    // Non-linear progress simulation
+    // Varying speeds for different stages to simulate realism
+    let delay = 300;
+    let increment = Math.max(1, Math.floor(Math.random() * 5));
+
+    if (progress > 60 && progress < 80) {
+        // Slow down during "heavy" processing
+        delay = 500;
+        increment = Math.max(1, Math.floor(Math.random() * 3));
+    }
+
     const timeout = setTimeout(() => {
-      const increment = Math.max(1, Math.floor(Math.random() * 10));
       setProgress(prev => Math.min(100, prev + increment));
-    }, 300);
+    }, delay);
 
     return () => clearTimeout(timeout);
-  }, [progress]);
+  }, [progress, isComplete]);
 
   // Fetch AI report when complete
   useEffect(() => {
@@ -120,30 +139,71 @@ export const ProcessPhase: React.FC<ProcessPhaseProps> = ({ metrics, cuts, confi
 
   if (!isComplete) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in w-full max-w-2xl mx-auto text-center space-y-8">
-        <div className="relative w-32 h-32 flex items-center justify-center">
-           <div className="absolute inset-0 border-4 border-slate-800 rounded-full"></div>
-           <div 
-             className="absolute inset-0 border-4 border-indigo-500 rounded-full border-t-transparent animate-spin"
-             style={{ animationDuration: '1.5s' }}
-           ></div>
-           <Scissors className="w-10 h-10 text-indigo-400" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in w-full max-w-2xl mx-auto text-center space-y-12">
+        
+        {/* Animated Icon Container */}
+        <div className="relative">
+           <div className="w-32 h-32 rounded-full bg-slate-800/50 flex items-center justify-center border border-slate-700/50 shadow-2xl relative overflow-hidden">
+             {/* Spinning Border */}
+             <div className="absolute inset-0 border-2 border-indigo-500/20 rounded-full"></div>
+             <div 
+               className="absolute inset-0 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"
+               style={{ animationDuration: '2s' }}
+             ></div>
+             
+             {/* Center Icon */}
+             <div className="relative z-10 p-4 bg-slate-900 rounded-full border border-slate-700 shadow-inner">
+               <StageIcon className="w-10 h-10 text-indigo-400 animate-pulse" />
+             </div>
+           </div>
         </div>
         
-        <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-white">Rendering your video...</h2>
-          <p className="text-slate-400">
-            Stitching clips and exporting as <span className="text-indigo-400 font-mono uppercase">{config.outputFormat}</span> at <span className="text-indigo-400 font-mono uppercase">{config.outputQuality}</span>.
-          </p>
+        {/* Progress Stages */}
+        <div className="w-full space-y-4 px-8">
+           <div className="flex justify-between items-end">
+              <div className="text-left space-y-1">
+                 <h2 className="text-2xl font-bold text-white tracking-tight">{currentStage.label}</h2>
+                 <p className="text-sm text-slate-400 font-mono flex items-center gap-2">
+                   <span className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span>
+                   {currentStage.detail}
+                 </p>
+              </div>
+              <span className="text-3xl font-bold text-slate-700 font-mono">{progress}%</span>
+           </div>
+
+           <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden shadow-inner border border-slate-700/50 relative">
+              {/* Animated Stripes Background */}
+              <div 
+                 className="absolute inset-0 w-full h-full opacity-10"
+                 style={{ 
+                    backgroundImage: 'linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent)', 
+                    backgroundSize: '1rem 1rem' 
+                 }}
+              ></div>
+              
+              {/* Progress Bar */}
+              <div 
+                className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-400 h-full rounded-full transition-all duration-300 ease-out shadow-[0_0_15px_rgba(99,102,241,0.5)] relative overflow-hidden" 
+                style={{ width: `${progress}%` }}
+              >
+                  {/* Shimmer Effect */}
+                  <div className="absolute top-0 left-0 w-full h-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full"></div>
+              </div>
+           </div>
         </div>
 
-        <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
-          <div 
-            className="bg-gradient-to-r from-indigo-500 to-cyan-400 h-2.5 rounded-full transition-all duration-300 ease-out" 
-            style={{ width: `${progress}%` }}
-          ></div>
+        {/* Technical Specs */}
+        <div className="grid grid-cols-2 gap-8 text-xs text-slate-500 border-t border-slate-800/50 pt-8 w-full max-w-lg">
+           <div className="flex justify-between border-b border-slate-800 pb-2">
+             <span>Export Format</span>
+             <span className="text-slate-300 font-mono uppercase">{config.outputFormat}</span>
+           </div>
+           <div className="flex justify-between border-b border-slate-800 pb-2">
+             <span>Resolution</span>
+             <span className="text-slate-300 font-mono uppercase">{config.outputQuality}</span>
+           </div>
         </div>
-        <p className="font-mono text-slate-500">{progress}%</p>
+
       </div>
     );
   }

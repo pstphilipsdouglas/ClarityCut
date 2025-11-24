@@ -158,7 +158,8 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     const ms = Math.floor((seconds % 1) * 1000); // Milliseconds
-    return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+    // Using colon separator as requested for milliseconds (e.g. 1:23:456)
+    return `${mins}:${secs.toString().padStart(2, '0')}:${ms.toString().padStart(3, '0')}`;
   };
 
   // Scrubbing Handlers
@@ -442,11 +443,12 @@ export const ReviewPhase: React.FC<ReviewPhaseProps> = ({
                 </div>
                 
                 {/* Right: Legend */}
-                <div className="hidden xl:flex gap-4 text-xs font-medium w-24 justify-end">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-1.5 text-slate-400"><span className="w-2 h-2 rounded-full bg-amber-500"></span>Filler</div>
-                    <div className="flex items-center gap-1.5 text-slate-400"><span className="w-2 h-2 rounded-full bg-pink-500"></span>Cliché</div>
-                  </div>
+                <div className="hidden xl:flex gap-3 text-xs font-medium items-center justify-end">
+                  <div className="flex items-center gap-1.5 text-slate-400" title="Filler Words"><span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]"></span>Filler</div>
+                  <div className="flex items-center gap-1.5 text-slate-400" title="Clichés"><span className="w-2 h-2 rounded-full bg-pink-500 shadow-[0_0_8px_rgba(236,72,153,0.5)]"></span>Cliché</div>
+                  <div className="flex items-center gap-1.5 text-slate-400" title="Stuttering"><span className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]"></span>Stutter</div>
+                  <div className="flex items-center gap-1.5 text-slate-400" title="Repetitions"><span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></span>Repeat</div>
+                  <div className="flex items-center gap-1.5 text-slate-400" title="Silences"><span className="w-2 h-2 rounded-full bg-slate-500"></span>Silence</div>
                 </div>
              </div>
           </div>
